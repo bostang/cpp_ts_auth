@@ -18,25 +18,15 @@ pipeline {
                     agent {
                         docker {
                             image 'ubuntu:latest'
-                            // Add this line to run the container as the root user,
-                            // which resolves the permission denied error with apt-get.
                             args '--user root'
                         }
                     }
                     steps {
-                        // Now we can install dependencies without 'sudo' because the
-                        // pipeline is running as root inside the Docker container.
                         sh 'apt-get update'
                         sh 'apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git'
-                        
-                        // Fix for 'dubious ownership' error in recent Git versions.
-                        // We add the workspace directory as a safe directory for Git.
                         sh 'git config --global --add safe.directory /var/jenkins_home/workspace/cpp_ts_auth_ci-cd_jenkins'
-
-                        // Perform submodule update inside the correct directory
                         sh 'git submodule update --init --recursive'
                         
-                        // Use a `dir` block to run the CMake commands in the backend directory.
                         dir('be_cpp') {
                             sh 'cmake -B build .'
                             sh 'cmake --build build'
@@ -52,16 +42,23 @@ pipeline {
                     agent {
                         docker {
                             image 'node:18'
-                            // Add this line to run the container as the root user
-                            // to prevent potential npm permission issues.
                             args '--user root'
                         }
                     }
                     steps {
-                        // Use a `dir` block to run the npm commands in the frontend directory.
                         dir('fe_ts') {
                             sh 'npm install'
                             sh 'npm run build'
+                        }
+                    }
+                    // Tambahkan `post` block untuk menyimpan hasil build frontend
+                    post {
+                        success {
+                            dir('fe_ts') {
+                                // Menyimpan direktori 'dist' dengan nama 'frontend-dist'
+                                // Pastikan nama ini unik
+                                stash includes: 'dist/**', name: 'frontend-dist'
+                            }
                         }
                     }
                 }
@@ -72,23 +69,26 @@ pipeline {
         
         // Stage 3: Package and deploy the application.
         stage('Continuous Deployment') {
-            // This stage runs on the Jenkins agent itself, which we've confirmed
-            // has the Docker CLI and access to the Docker daemon.
             agent any
             
             steps {
-                // Langkah 1: Login Docker Hub sekali saja di dalam `withCredentials`
+                // Ambil kembali direktori 'dist' yang sudah disimpan
+                // Unstash harus dilakukan di level root workspace
+                unstash 'frontend-dist'
+                
+                // Pindahkan hasil unstash ke direktori `fe_ts`
+                sh 'mv dist fe_ts/dist'
+
+                // Langkah 1: Login Docker Hub
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh "echo \"${env.DOCKER_PASSWORD}\" | docker login -u ${env.DOCKER_USERNAME} --password-stdin"
                 }
                 
                 // Langkah 2: Gunakan `script` block dengan sintaks `parallel([:])`
-                // untuk menjalankan build dan push image secara paralel.
                 script {
                     parallel(
                         'Build and Push Backend Image': {
                             dir('be_cpp') {
-                                // Build, tag, and push the backend image to Docker Hub
                                 sh "docker build -t bostang/auth-app-cpp-ts-be:latest ."
                                 sh "docker tag bostang/auth-app-cpp-ts-be:latest bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
                                 sh "docker push bostang/auth-app-cpp-ts-be:latest"
@@ -97,7 +97,8 @@ pipeline {
                         },
                         'Build and Push Frontend Image': {
                             dir('fe_ts') {
-                                // Build, tag, and push the frontend image to Docker Hub
+                                // Sekarang direktori `fe_ts` sudah berisi direktori `dist`
+                                // yang sudah diunstash
                                 sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
                                 sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
                                 sh "docker push bostang/auth-app-cpp-ts-fe:latest"
