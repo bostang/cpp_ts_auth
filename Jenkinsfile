@@ -47,13 +47,15 @@ pipeline {
                     }
                     steps {
                         dir('fe_ts') {
-                            sh 'npm install'
-                            sh 'npm run build'
+                            sh '''
+                                npm install
+                                npm run build
+                            '''
                             // --- PERBAIKAN DI SINI ---
-                            // Stash langsung setelah build selesai,
-                            // saat direktori `dist` masih ada di dalam kontainer.
-                            stash includes: 'dist/**', name: 'frontend-dist'
+                            // Stash dipindahkan keluar dari blok `dir` dan ke dalam `steps`
+                            // Ini akan mencari `fe_ts/dist` di workspace Jenkins host
                         }
+                        stash includes: 'fe_ts/dist/**', name: 'frontend-dist'
                     }
                 }
             }
@@ -67,12 +69,10 @@ pipeline {
             
             steps {
                 // Ambil kembali direktori 'dist' yang sudah disimpan
-                // Unstash harus dilakukan di level root workspace
                 unstash 'frontend-dist'
                 
-                // Pindahkan hasil unstash ke direktori `fe_ts`
-                // `unstash` akan mengembalikan file di root workspace, jadi Anda perlu
-                // memindahkannya kembali ke `fe_ts`.
+                // Pindahkan file `dist` yang diunstash ke dalam direktori `fe_ts`
+                // secara eksplisit agar Dockerfile dapat menemukannya
                 sh 'mv dist fe_ts/dist'
 
                 // Langkah 1: Login Docker Hub
@@ -93,8 +93,6 @@ pipeline {
                         },
                         'Build and Push Frontend Image': {
                             dir('fe_ts') {
-                                // Sekarang direktori `fe_ts` sudah berisi direktori `dist`
-                                // yang sudah diunstash
                                 sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
                                 sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
                                 sh "docker push bostang/auth-app-cpp-ts-fe:latest"
