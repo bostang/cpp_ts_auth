@@ -6,63 +6,65 @@ pipeline {
     // The main agent is set to `none`, as each stage will define its own agent.
     agent none
 
-    // The 'tools' directive is no longer needed at the global level because
-    // the Node.js Docker image will provide the environment.
-
     stages {
         // ---
 
-        // Stage 1: Build the C++ backend inside a Docker container.
-        stage('Build C++ Backend') {
-            // This agent uses a clean Ubuntu Docker image.
-            agent {
-                docker {
-                    image 'ubuntu:latest'
-                    // Add this line to run the container as the root user,
-                    // which resolves the permission denied error with apt-get.
-                    args '--user root'
+        // This stage will run the backend and frontend builds in parallel.
+        stage('Parallel Builds') {
+            parallel {
+                // Stage 1: Build the C++ backend inside a Docker container.
+                stage('Build C++ Backend') {
+                    // This agent uses a clean Ubuntu Docker image.
+                    agent {
+                        docker {
+                            image 'ubuntu:latest'
+                            // Add this line to run the container as the root user,
+                            // which resolves the permission denied error with apt-get.
+                            args '--user root'
+                        }
+                    }
+                    steps {
+                        // Now we can install dependencies without 'sudo' because the
+                        // pipeline is running as root inside the Docker container.
+                        sh 'apt-get update'
+                        sh 'apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git'
+                        
+                        // Fix for 'dubious ownership' error in recent Git versions.
+                        // We add the workspace directory as a safe directory for Git.
+                        sh 'git config --global --add safe.directory /var/jenkins_home/workspace/cpp_ts_auth_ci-cd_jenkins'
+
+                        // Perform submodule update inside the correct directory
+                        sh 'git submodule update --init --recursive'
+                        
+                        // Use a `dir` block to run the CMake commands in the backend directory.
+                        dir('be_cpp') {
+                            sh 'cmake -B build .'
+                            sh 'cmake --build build'
+                        }
+                    }
                 }
-            }
-            steps {
-                // Now we can install dependencies without 'sudo' because the
-                // pipeline is running as root inside the Docker container.
-                sh '''
-                    apt-get update
-                    apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git
-                    
-                    # Fix for 'dubious ownership' error in recent Git versions.
-                    # We add the workspace directory as a safe directory for Git.
-                    git config --global --add safe.directory /var/jenkins_home/workspace/cpp_ts_auth_ci-cd_jenkins
 
-                    git submodule update --init --recursive
-                    cd be_cpp
-                    cmake -B build .
-                    cmake --build build
-                '''
-            }
-        }
+                // ---
 
-        // ---
-
-        // Stage 2: Build the TypeScript Frontend inside a Docker container.
-        stage('Build TypeScript Frontend') {
-            // This agent uses the official Node.js 18 Docker image.
-            agent {
-                docker {
-                    image 'node:18'
-                    // Add this line to run the container as the root user
-                    // to prevent potential npm permission issues.
-                    args '--user root'
+                // Stage 2: Build the TypeScript Frontend inside a Docker container.
+                stage('Build TypeScript Frontend') {
+                    // This agent uses the official Node.js 18 Docker image.
+                    agent {
+                        docker {
+                            image 'node:18'
+                            // Add this line to run the container as the root user
+                            // to prevent potential npm permission issues.
+                            args '--user root'
+                        }
+                    }
+                    steps {
+                        // Use a `dir` block to run the npm commands in the frontend directory.
+                        dir('fe_ts') {
+                            sh 'npm install'
+                            sh 'npm run build'
+                        }
+                    }
                 }
-            }
-            steps {
-                // We no longer need to install Node.js as the container already
-                // has it. We simply install project dependencies and build.
-                sh '''
-                    cd fe_ts
-                    npm install
-                    npm run build
-                '''
             }
         }
     }
