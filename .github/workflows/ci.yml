@@ -1,0 +1,54 @@
+# .github/workflows/ci.yml
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-backend:
+    name: Build C++ Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install C++ Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ cmake libpqxx-dev libboost-dev
+
+      - name: Build C++ Backend
+        run: |
+          cd be_cpp
+          cmake -B build .
+          cmake --build build
+
+  build-frontend:
+    name: Build TypeScript Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd fe_ts
+          npm install
+
+      - name: Build Frontend
+        run: |
+          cd fe_ts
+          npm run build
