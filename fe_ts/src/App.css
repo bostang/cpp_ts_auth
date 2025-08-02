@@ -1,0 +1,60 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* app-container tidak diperlukan lagi karena kita bisa mengatur tata letak langsung di body */
+
+nav {
+  display: flex;
+  gap: 15px; /* Jarak antara tombol */
+  margin-bottom: 20px;
+  position: absolute; /* Posisikan secara absolut */
+  top: 100px; /* Jarak dari atas */
+  /* Untuk menengahkan secara horizontal */
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+nav a {
+  text-decoration: none;
+  font-weight: bold;
+  padding: 12px 25px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: none; /* Hapus border */
+}
+
+/* Gaya untuk tombol 'Daftar' */
+nav a[href="/register"] {
+  background-color: #007bff;
+  color: white;
+}
+
+nav a[href="/register"]:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 123, 255, 0.4);
+}
+
+/* Gaya untuk tombol 'Login' */
+nav a[href="/login"] {
+  background-color: white;
+  color: #007bff;
+  border: 1px solid #007bff; /* Tambahkan border tipis untuk tombol 'Login' */
+}
+
+nav a[href="/login"]:hover {
+  background-color: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
