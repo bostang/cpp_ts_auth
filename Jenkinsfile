@@ -18,6 +18,9 @@ pipeline {
             agent {
                 docker {
                     image 'ubuntu:latest'
+                    // Add this line to run the container as the root user,
+                    // which resolves the permission denied error with apt-get.
+                    args '--user root'
                 }
             }
             steps {
@@ -42,6 +45,9 @@ pipeline {
             agent {
                 docker {
                     image 'node:18'
+                    // Add this line to run the container as the root user
+                    // to prevent potential npm permission issues.
+                    args '--user root'
                 }
             }
             steps {

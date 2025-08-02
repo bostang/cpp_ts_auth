@@ -97,6 +97,9 @@ docker build -t my-jenkins:lts -f Dockerfile.jenkins .
 docker stop jenkins
 docker rm jenkins
 
+# cek ID group docker di host
+getent group docker
+
 # run the custom jenkins image
 docker run \
   --name jenkins \
@@ -104,5 +107,6 @@ docker run \
   -p 50000:50000 \
   -v jenkins-data:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add 1001 \
   my-jenkins:lts
 ```
