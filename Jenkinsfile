@@ -49,16 +49,10 @@ pipeline {
                         dir('fe_ts') {
                             sh 'npm install'
                             sh 'npm run build'
-                        }
-                    }
-                    // Tambahkan `post` block untuk menyimpan hasil build frontend
-                    post {
-                        success {
-                            dir('fe_ts') {
-                                // Menyimpan direktori 'dist' dengan nama 'frontend-dist'
-                                // Pastikan nama ini unik
-                                stash includes: 'dist/**', name: 'frontend-dist'
-                            }
+                            // --- PERBAIKAN DI SINI ---
+                            // Stash langsung setelah build selesai,
+                            // saat direktori `dist` masih ada di dalam kontainer.
+                            stash includes: 'dist/**', name: 'frontend-dist'
                         }
                     }
                 }
@@ -77,6 +71,8 @@ pipeline {
                 unstash 'frontend-dist'
                 
                 // Pindahkan hasil unstash ke direktori `fe_ts`
+                // `unstash` akan mengembalikan file di root workspace, jadi Anda perlu
+                // memindahkannya kembali ke `fe_ts`.
                 sh 'mv dist fe_ts/dist'
 
                 // Langkah 1: Login Docker Hub
