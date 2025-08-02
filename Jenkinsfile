@@ -46,18 +46,21 @@ pipeline {
                         }
                     }
                     steps {
+                        // --- PERBAIKAN AKHIR DAN PALING KRUSIAL ---
+                        // Kita gabungkan semua langkah frontend ke dalam satu blok `dir`
+                        // agar semuanya berjalan di satu tempat dan satu kontainer.
                         dir('fe_ts') {
                             sh '''
+                                # Jalankan `npm install` dan `npm run build`
                                 npm install
                                 npm run build
                             '''
                         }
                         
-                        // --- SOLUSI TERAKHIR: Transfer file secara manual menggunakan tar dan base64 ---
-                        sh 'cd fe_ts && tar -czf ../frontend-dist.tar.gz dist'
-                        // `tar` akan mengompres `dist` dan meletakkannya di root workspace
-                        // `archiveArtifacts` akan mengambil file tar ini, yang pasti ada
-                        archiveArtifacts artifacts: 'frontend-dist.tar.gz', fingerprint: true
+                        // Setelah `dir` selesai, direktori `fe_ts/dist` sudah ada di workspace host.
+                        // Sekarang, kita bisa mengarsipkannya dengan aman.
+                        // `archiveArtifacts` bekerja di host Jenkins, bukan di dalam kontainer.
+                        archiveArtifacts artifacts: 'fe_ts/dist/**', fingerprint: true
                     }
                 }
             }
@@ -70,11 +73,8 @@ pipeline {
             agent any
             
             steps {
-                // Ambil kembali artefak tar
-                unarchive mapping: ['frontend-dist.tar.gz': '.']
-                
-                // Ekstrak file tar untuk mengembalikan direktori `dist` ke tempat asalnya
-                sh 'cd fe_ts && tar -xzf ../frontend-dist.tar.gz'
+                // `unarchive` akan mengembalikan file `dist` ke sub-direktori `fe_ts`
+                unarchive mapping: ['fe_ts/dist/**': 'fe_ts/dist/']
                 
                 // Langkah 1: Login Docker Hub sekali saja
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
@@ -94,7 +94,6 @@ pipeline {
                         },
                         'Build and Push Frontend Image': {
                             dir('fe_ts') {
-                                // Sekarang direktori `fe_ts/dist` sudah ada dan bisa diakses
                                 sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
                                 sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
                                 sh "docker push bostang/auth-app-cpp-ts-fe:latest"
