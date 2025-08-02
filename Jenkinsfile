@@ -52,13 +52,3 @@ pipeline {
         }
     }
 }
-// ---
-
-    // Post-build actions can be added here if needed, such as archiving artifacts
-    // or sending notifications.
-    post {
-        always {
-            echo 'Pipeline completed.'
-        }
-    }
-}
