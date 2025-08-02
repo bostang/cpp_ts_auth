@@ -7,3 +7,6 @@
 [submodule "be_cpp/lib/libpqxx"]
 	path = be_cpp/lib/libpqxx
 	url = https://github.com/jtv/libpqxx.git
+[submodule "be_cpp/lib/jwt-cpp"]
+	path = be_cpp/lib/jwt-cpp
+	url = https://github.com/Thalhammer/jwt-cpp.git
