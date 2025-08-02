@@ -65,8 +65,7 @@ pipeline {
                             '''
                             // Menggunakan `archiveArtifacts` untuk menyimpan direktori `dist` sebagai artefak
                             // Ini adalah langkah inti Jenkins dan seharusnya lebih andal
-                            archiveArtifacts artifacts: 'dist/**', fingerprint: true
-                        }
+                            archiveArtifacts artifacts: 'fe_ts/dist/**', fingerprint: true                        }
                     }
                 }
             }
