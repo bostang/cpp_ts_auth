@@ -51,11 +51,9 @@ pipeline {
                                 npm install
                                 npm run build
                             '''
-                            // --- PERBAIKAN DI SINI ---
-                            // Stash dipindahkan keluar dari blok `dir` dan ke dalam `steps`
-                            // Ini akan mencari `fe_ts/dist` di workspace Jenkins host
+                            // Menggunakan `archive` untuk menyimpan direktori `dist` sebagai artefak
+                            archive includes: 'dist/**', fingerprint: true
                         }
-                        stash includes: 'fe_ts/dist/**', name: 'frontend-dist'
                     }
                 }
             }
@@ -68,13 +66,9 @@ pipeline {
             agent any
             
             steps {
-                // Ambil kembali direktori 'dist' yang sudah disimpan
-                unstash 'frontend-dist'
+                // Menggunakan `unarchive` untuk mengembalikan artefak dari stage sebelumnya
+                unarchive mapping: ['dist/**': 'fe_ts/dist/']
                 
-                // Pindahkan file `dist` yang diunstash ke dalam direktori `fe_ts`
-                // secara eksplisit agar Dockerfile dapat menemukannya
-                sh 'mv dist fe_ts/dist'
-
                 // Langkah 1: Login Docker Hub
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh "echo \"${env.DOCKER_PASSWORD}\" | docker login -u ${env.DOCKER_USERNAME} --password-stdin"
@@ -93,6 +87,7 @@ pipeline {
                         },
                         'Build and Push Frontend Image': {
                             dir('fe_ts') {
+                                // Sekarang direktori `fe_ts/dist` sudah ada karena `unarchive`
                                 sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
                                 sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
                                 sh "docker push bostang/auth-app-cpp-ts-fe:latest"
