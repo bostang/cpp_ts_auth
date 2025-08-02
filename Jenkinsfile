@@ -1,56 +1,52 @@
-// This Jenkinsfile uses a more robust approach by running each build stage
-// inside its own Docker container. This ensures a clean, consistent, and
-// isolated environment for each part of the pipeline.
+// This Jenkinsfile is a final, more robust version that runs directly on the Jenkins agent.
+// It explicitly calls 'docker run' for each stage, which avoids the issues with
+// 'agent { docker { ... } }' and 'docker: not found' errors.
 
 pipeline {
-    // The main agent is set to `none`, as each stage will define its own agent.
-    agent none
+    // The main agent is set to 'any', as the entire pipeline runs on the host agent.
+    // This assumes that the host has Docker and git installed.
+    agent any
 
-    // The 'tools' directive is no longer needed at the global level because
-    // the Node.js Docker image will provide the environment.
+    // The 'tools' directive is used to provide the Node.js environment.
+    tools {
+        nodejs 'Node.js 18'
+    }
 
     stages {
         // ---
 
-        // Stage 1: Build the C++ backend inside a Docker container.
+        // Stage 1: Build the C++ backend inside a Docker container using a manual 'docker run'.
         stage('Build C++ Backend') {
-            // This agent uses a clean Ubuntu Docker image.
-            agent {
-                docker {
-                    image 'ubuntu:latest'
-                }
-            }
             steps {
-                // Now we can install dependencies without 'sudo' because the
-                // pipeline is running as root inside the Docker container.
+                // Use a 'docker run' command to create a container and execute a shell script.
+                // We mount the current workspace to the container so that the build output
+                // is available on the Jenkins agent after the container exits.
                 sh '''
-                    apt-get update
-                    apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git
-                    git submodule update --init --recursive
-                    cd be_cpp
-                    cmake -B build .
-                    cmake --build build
+                    docker run --rm -v "$(pwd):/app" ubuntu:latest /bin/bash -c "
+                      apt-get update && apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git &&
+                      cd /app &&
+                      git submodule update --init --recursive &&
+                      cd be_cpp &&
+                      cmake -B build . &&
+                      cmake --build build
+                    "
                 '''
             }
         }
 
         // ---
 
-        // Stage 2: Build the TypeScript frontend inside a Docker container.
+        // Stage 2: Build the TypeScript frontend inside a Node.js Docker container.
         stage('Build TypeScript Frontend') {
-            // This agent uses the official Node.js 18 Docker image.
-            agent {
-                docker {
-                    image 'node:18'
-                }
-            }
             steps {
-                // We no longer need to install Node.js as the container already
-                // has it. We simply install project dependencies and build.
+                // Use a 'docker run' command with the Node.js image to build the frontend.
+                // We mount the workspace to the container to access the source code.
                 sh '''
-                    cd fe_ts
-                    npm install
-                    npm run build
+                    docker run --rm -v "$(pwd):/app" node:18 /bin/bash -c "
+                      cd /app/fe_ts &&
+                      npm install &&
+                      npm run build
+                    "
                 '''
             }
         }
