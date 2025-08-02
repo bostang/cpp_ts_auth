@@ -5,10 +5,10 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   build-backend:
@@ -18,11 +18,13 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          submodules: 'recursive' # Menambahkan opsi ini untuk mengambil submodule
 
       - name: Install C++ Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ cmake libpqxx-dev libboost-dev
+          sudo apt-get install -y g++ cmake libboost-dev libssl-dev
 
       - name: Build C++ Backend
         run: |
