@@ -1,0 +1,9 @@
+[submodule "be_cpp/lib/Crow"]
+	path = be_cpp/lib/Crow
+	url = https://github.com/CrowCpp/Crow.git
+[submodule "be_cpp/lib/bcrypt"]
+	path = be_cpp/lib/bcrypt
+	url = https://github.com/hilch/Bcrypt.cpp.git
+[submodule "be_cpp/lib/libpqxx"]
+	path = be_cpp/lib/libpqxx
+	url = https://github.com/jtv/libpqxx.git
