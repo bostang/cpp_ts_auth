@@ -1,48 +1,40 @@
-// This Jenkinsfile defines a CI pipeline to build both a C++ backend and a
-// TypeScript frontend, mirroring the logic of your GitHub Actions workflow.
+// This updated Jenkinsfile fixes the issues found in the build log by using a
+// Docker agent for a consistent and robust build environment.
 
-// The 'pipeline' block is the root of the Jenkins Pipeline script.
 pipeline {
-    // The 'agent' directive specifies where the pipeline will run.
-    // 'any' means Jenkins will allocate an available agent.
-    // For a more controlled environment, you could use a Docker image with
-    // a specific agent label, for example: 'agent { label 'ubuntu-agent' }'
-    agent any
-
-    // The 'stages' block contains the individual stages of the pipeline.
-    stages {
-        // Stage 1: Checkout the source code from the Git repository.
-        // This is a common first step for all CI pipelines.
-        stage('Checkout Source Code') {
-            steps {
-                // The 'checkout scm' step checks out the code from the source
-                // control management (SCM) system defined in the Jenkins job configuration.
-                // We also add the 'recursive' option to fetch submodules,
-                // which mirrors the 'actions/checkout@v3' with 'submodules: recursive'.
-                checkout scm: [$class: 'GitSCM', branches: [[name: '*/main'], [name: '*/master']],
-                             userRemoteConfigs: [[url: 'https://github.com/bostang/cpp_ts_auth.git', credentialsId: '']],
-                             extensions: [[$class: 'SubmoduleOption', recursive: true, parentCredentials: true]]]
-            }
+    // The 'agent' directive is now configured to use a Docker container.
+    // This ensures a clean environment with the necessary tools, resolving the 'sudo' issue.
+    // 'ubuntu:latest' is used as a base image, but you can specify a different
+    // image if needed (e.g., one with pre-installed dependencies).
+    agent {
+        docker {
+            image 'ubuntu:latest'
         }
+    }
+
+    // The 'tools' directive can be defined globally here, but we will define
+    // it locally in the 'Build TypeScript Frontend' stage as it is only needed there.
+
+    stages {
+        // Since Jenkins automatically checks out the code at the start of a
+        // declarative pipeline, we can remove the redundant 'Checkout Source Code' stage.
 
         // ---
 
-        // Stage 2: Build the C++ backend.
+        // Stage 1: Build the C++ backend.
         stage('Build C++ Backend') {
-            // The 'tools' block can be used to load tools configured in Jenkins
-            // Global Tool Configuration (e.g., 'Node.js 18').
-            // This is just a placeholder, as C++ tools are typically pre-installed on the agent.
-            // tools {
-            //   nodejs 'Node.js 18'
-            // }
             steps {
-                // The 'sh' step executes a shell command.
-                // We use 'sudo apt-get' commands to install the necessary dependencies.
-                // It's good practice to wrap multiple commands in a single 'sh' block
-                // with a multiline string to ensure they run in the same shell session.
+                // Because we are now in a clean Docker container, we need to
+                // ensure the submodules are checked out correctly. The `git` command
+                // is more reliable than a plugin-specific option.
+                sh 'git submodule update --init --recursive'
+
+                // We can now install dependencies without 'sudo' because the
+                // pipeline is running inside a Docker container with root privileges.
+                // It's still good practice to use a single `sh` block for related commands.
                 sh '''
-                    sudo apt-get update
-                    sudo apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev
+                    apt-get update
+                    apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev
                 '''
 
                 // Now, we run the cmake and build commands for the C++ project.
@@ -56,8 +48,14 @@ pipeline {
 
         // ---
 
-        // Stage 3: Build the TypeScript frontend.
+        // Stage 2: Build the TypeScript frontend.
         stage('Build TypeScript Frontend') {
+            // This 'tools' block loads a pre-configured Node.js tool.
+            // You must configure a tool named "Node.js 18" in Jenkins'
+            // 'Manage Jenkins -> Global Tool Configuration'.
+            tools {
+                nodejs 'Node.js 18'
+            }
             steps {
                 // Change directory to the frontend project and install Node.js dependencies.
                 sh '''
