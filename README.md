@@ -89,6 +89,10 @@ npm start
 
 ## Jenkins
 
+Cara melakukan CI (continous integration) dengan Jenkins :
+
+**Langkah 1** : Siapkan container Jenkins (customer)
+
 ```bash
 # build customer docker image for jenkins (docker installed inside)
 docker build -t my-jenkins:lts -f Dockerfile.jenkins .
@@ -110,3 +114,19 @@ docker run \
   --group-add 1001 \
   my-jenkins:lts
 ```
+
+**Langkah 2** : Buat new build (pipeline), tambahkan GithubSCM, install plugins yang dibutuhkan.
+
+- tampilan pipeline sukses (parallel build)
+
+![tampilan-success-parallel-build](./assets/tampilan-success-parallel-build.png)
+
+- tampilan pipeline sukses (serial build (v1))
+
+![tampilan-success-serial-build](./assets/tampilan-success-serial-build.png)
+
+**Catatan** :
+
+- Gunakan nama yang deskriptif untuk setiap build (baik fail maupun success).
+
+![descriptive-build-information](./assets/descriptive-build-information.png)
