@@ -1,18 +1,27 @@
+// File: be_cpp/src/main.cpp
+// C++ Authentication Server using Crow and PostgreSQL
+// This code implements a simple C++ web server using Crow and PostgreSQL for authentication.
+// It includes user registration, login with JWT, and a protected dashboard route.
+// The server handles CORS and JWT authentication, and uses bcrypt for password hashing.
+// Make sure to adjust the database connection parameters and JWT secret as needed.
+
 #include <iostream>
 #include <crow.h>
 #include <pqxx/pqxx>
-#include <pqxx/except>
 #include "bcrypt.h"
-#include <string>
+#include "jwt-cpp/jwt.h"
+#include <memory>
+#include <optional>
 
-// Global connection to the database
+// Global database connection
 std::unique_ptr<pqxx::connection> conn;
+const std::string JWT_SECRET = "your_secret_key";
 
-// CORS Middleware to allow requests from the frontend
+// ===== Middleware CORS =====
 struct CORS {
     struct context {};
 
-    void before_handle(crow::request& req, crow::response& res, context& ctx) {
+    void before_handle(crow::request& req, crow::response& res, context&) {
         if (req.method == "OPTIONS"_method) {
             res.add_header("Access-Control-Allow-Origin", "*");
             res.add_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
@@ -22,77 +31,113 @@ struct CORS {
         }
     }
 
-    void after_handle(crow::request& req, crow::response& res, context& ctx) {
+    void after_handle(crow::request&, crow::response& res, context&) {
         res.add_header("Access-Control-Allow-Origin", "*");
         res.add_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
         res.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     }
 };
 
-int main() {
-    crow::App<CORS> app;
+// ===== Middleware JWTAuth =====
+struct JWTAuth {
+    struct context {
+        std::optional<std::string> username;
+    };
 
+    void before_handle(crow::request& req, crow::response& res, context& ctx) {
+        // Abaikan otentikasi untuk rute publik
+        if (req.url == "/login" || req.url == "/register") {
+            return;
+        }
+
+        auto auth_header = req.get_header_value("Authorization");
+        if (auth_header.substr(0, 7) != "Bearer ") {
+            res.code = 401;
+            res.write("Unauthorized: Bearer token missing.");
+            res.end();
+            return;
+        }
+
+        auto token = auth_header.substr(7);
+
+        try {
+            auto decoded = jwt::decode(token);
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .with_issuer("auth_server");
+            verifier.verify(decoded);
+
+            ctx.username = decoded.get_payload_claim("username").as_string();
+        } catch (const std::exception& e) {
+            res.code = 401;
+            res.write("Unauthorized: Invalid token.");
+            res.end();
+        }
+    }
+
+    void after_handle(crow::request&, crow::response&, context&) {}
+};
+
+// ===== MAIN =====
+int main() {
+    crow::App<CORS, JWTAuth> app;
+
+    // Connect to database
     try {
-        conn = std::make_unique<pqxx::connection>("dbname=auth_db_cpp user=postgres password=password host=localhost port=5432");
+        conn = std::make_unique<pqxx::connection>(
+            "dbname=auth_db_cpp user=postgres password=password host=localhost port=5432");
+
         if (conn->is_open()) {
-            std::cout << "Successfully connected to the database: " << conn->dbname() << std::endl;
+            std::cout << "Connected to DB: " << conn->dbname() << std::endl;
         } else {
-            std::cerr << "Failed to connect to the database." << std::endl;
+            std::cerr << "Failed to connect to DB.\n";
             return 1;
         }
-    } catch (const std::exception &e) {
-        std::cerr << "Database connection error: " << e.what() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "DB Connection error: " << e.what() << std::endl;
         return 1;
     }
 
+    // REGISTER
     CROW_ROUTE(app, "/register").methods("POST"_method)([](const crow::request& req){
-        crow::json::rvalue x = crow::json::load(req.body);
-        if (!x) {
-            return crow::response(400, "Invalid JSON.");
-        }
+        auto x = crow::json::load(req.body);
+        if (!x) return crow::response(400, "Invalid JSON.");
 
-        std::string username;
-        std::string password;
-
+        std::string username, password;
         try {
             username = x["username"].s();
             password = x["password"].s();
-        } catch (const std::runtime_error& e) {
+        } catch (...) {
             return crow::response(400, "Username and password are required.");
         }
 
-        std::string hashed_password = bcrypt::generateHash(password);
+        std::string hashed = bcrypt::generateHash(password);
 
         try {
             pqxx::work W(*conn);
-            W.exec_params("INSERT INTO users (username, password_hash) VALUES ($1, $2)", username, hashed_password);
+            W.exec_params("INSERT INTO users (username, password_hash) VALUES ($1, $2)", username, hashed);
+
             W.commit();
             return crow::response(201, "Registrasi berhasil!");
-        } catch (const pqxx::sql_error &e) {
-            if (std::string(e.what()).find("users_username_key") != std::string::npos) {
+        } catch (const pqxx::sql_error& e) {
+            if (std::string(e.what()).find("users_username_key") != std::string::npos)
                 return crow::response(409, "Username sudah ada.");
-            }
-            std::cerr << "SQL error: " << e.what() << std::endl;
-            return crow::response(500, "Terjadi kesalahan saat registrasi.");
-        } catch (const std::exception &e) {
-            std::cerr << "Error during registration: " << e.what() << std::endl;
-            return crow::response(500, "Terjadi kesalahan server.");
+            return crow::response(500, "Kesalahan saat registrasi.");
+        } catch (...) {
+            return crow::response(500, "Server error.");
         }
     });
 
+    // LOGIN
     CROW_ROUTE(app, "/login").methods("POST"_method)([](const crow::request& req){
-        crow::json::rvalue x = crow::json::load(req.body);
-        if (!x) {
-            return crow::response(400, "Invalid JSON.");
-        }
-        
-        std::string username;
-        std::string password;
-        
+        auto x = crow::json::load(req.body);
+        if (!x) return crow::response(400, "Invalid JSON.");
+
+        std::string username, password;
         try {
             username = x["username"].s();
             password = x["password"].s();
-        } catch (const std::runtime_error& e) {
+        } catch (...) {
             return crow::response(400, "Username and password are required.");
         }
 
@@ -100,23 +145,55 @@ int main() {
             pqxx::nontransaction N(*conn);
             pqxx::result R = N.exec_params("SELECT password_hash FROM users WHERE username = $1", username);
 
-            if (R.empty()) {
-                return crow::response(401, "Username atau password salah.");
-            }
-            
+            if (R.empty()) return crow::response(401, "Username atau password salah.");
+
             std::string stored_hash = R[0][0].as<std::string>();
-            
-            if (bcrypt::validatePassword(password, stored_hash)) {
-                return crow::response(200, "Login berhasil!");
-            } else {
+
+            if (!bcrypt::validatePassword(password, stored_hash))
                 return crow::response(401, "Username atau password salah.");
-            }
-        } catch (const std::exception &e) {
-            std::cerr << "Error during login: " << e.what() << std::endl;
-            return crow::response(500, "Terjadi kesalahan server.");
+
+            auto token = jwt::create()
+                .set_issuer("auth_server")
+                .set_type("JWS")
+                .set_payload_claim("username", jwt::claim(username))
+                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{1})
+                .sign(jwt::algorithm::hs256{JWT_SECRET});
+
+            crow::json::wvalue res;
+            res["message"] = "Login berhasil!";
+            res["token"] = token;
+            return crow::response(200, res);
+        } catch (...) {
+            return crow::response(500, "Server error.");
         }
     });
 
+    // LOGOUT (dummy stateless)
+    CROW_ROUTE(app, "/logout").methods("POST"_method)([](const crow::request&){
+        return crow::response(200, "Logout berhasil.");
+    });
+
+    CROW_ROUTE(app, "/dashboard").methods("GET"_method)
+    ([&app](const crow::request& req, crow::response& res){
+        auto& ctx = app.get_context<JWTAuth>(req);
+
+        if (!ctx.username.has_value()) {
+            res.code = 401;
+            res.write("Unauthorized: token tidak valid.");
+            res.end();
+            return;
+        }
+
+        crow::json::wvalue res_json;
+        res_json["message"] = "Selamat datang di dashboard, " + ctx.username.value();
+        res.code = 200;
+        res.write(res_json.dump());
+        res.end();
+    });
+
+
+    // Start app
     app.port(18080).multithreaded().run();
     return 0;
 }
+// End of main.cpp

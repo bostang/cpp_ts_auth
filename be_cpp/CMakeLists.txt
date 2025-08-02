@@ -10,11 +10,23 @@ add_subdirectory(lib/bcrypt)
 
 add_executable(server src/main.cpp)
 
-# Tentukan direktori include yang benar
-target_include_directories(server PRIVATE lib/bcrypt/include)
+# Tambahkan direktori header
+target_include_directories(server PRIVATE
+    lib/bcrypt/include
+    lib/jwt-cpp/include
+)
 
-# Tautkan library ke executable.
-target_link_libraries(server Crow::Crow pqxx bcrypt)
+# Tambahkan dependency OpenSSL
+find_package(OpenSSL REQUIRED)
+target_link_libraries(server PRIVATE OpenSSL::Crypto)
+
+# Tautkan library lain
+target_link_libraries(server
+    PRIVATE
+    Crow::Crow
+    pqxx
+    bcrypt
+)
 
 set_target_properties(server PROPERTIES
     CXX_EXTENSIONS OFF

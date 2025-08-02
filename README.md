@@ -1,8 +1,36 @@
 # C++ & TypeScript Authentication App
 
+## Pengujian
+
+```bash
+# Register
+curl -X POST http://localhost:18080/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"secret"}'
+
+# Login
+curl -X POST http://localhost:18080/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"secret"}'
+
+# Dashboard (pakai token dari hasil login)
+curl http://localhost:18080/dashboard \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+
+```
+
+## Detail Cara Menjalankan dan Membuat dari Nol
+
+## Database
+
+```bash
+cd db_pg
+psql -U postgres
+```
+
 ## Backend
 
-### Menjalankan
+**Menjalankan**:
 
 ```bash
 # lakukan dari folder /be_cpp/
@@ -10,11 +38,12 @@ git submodule update --init --recursive
 ./be_cpp/build/server
 ```
 
-### Membuat proyek dari nol
+**Membuat proyek dari nol**:
 
 ```bash
 # tambahkan library
 # pastikan jalankan dari /cpp_ts_auth/
+git submodule add https://github.com/Thalhammer/jwt-cpp.git be_cpp/lib/jwt-cpp
 git submodule add https://github.com/CrowCpp/Crow.git be_cpp/lib/Crow
 git submodule add https://github.com/hilch/Bcrypt.cpp.git be_cpp/lib/bcrypt
 git submodule add https://github.com/jtv/libpqxx.git be_cpp/lib/libpqxx
@@ -34,10 +63,14 @@ echo "================== END of log ==================" >> ../log/build.log
 
 ## Frontend
 
-### Menjalankan
+**Menjalankan**:
 
+```bash
+npm install
+npm start
+```
 
-### Membuat proyek dari nol
+**Membuat proyek dari nol**:
 
 ```bash
 npx create-react-app fe_ts --template typescript
@@ -45,4 +78,3 @@ cd fe_ts
 npm install react-router-dom
 npm start
 ```
-

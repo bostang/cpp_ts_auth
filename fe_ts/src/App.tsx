@@ -1,26 +1,23 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import RegisterForm from './components/RegisterForm';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LandingPage from './components/LandingPage'; // Import komponen baru
 import LoginForm from './components/LoginForm';
-import './App.css'; // Pastikan file CSS diimpor
-
-const Dashboard: React.FC = () => <h2>Selamat datang di Dashboard!</h2>;
+import RegisterForm from './components/RegisterForm';
+import Dashboard from './components/Dashboard';
 
 const App: React.FC = () => {
-    return (
-        <Router>
-            <nav>
-                <Link to="/register">Daftar</Link>
-                <Link to="/login">Login</Link>
-            </nav>
-            <Routes>
-                <Route path="/register" element={<RegisterForm />} />
-                <Route path="/login" element={<LoginForm />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/" element={<h2>Silakan daftar atau login</h2>} />
-            </Routes>
-        </Router>
-    );
+  return (
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginForm />} />
+          <Route path="/register" element={<RegisterForm />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </div>
+    </Router>
+  );
 };
 
 export default App;
