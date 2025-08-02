@@ -86,3 +86,23 @@ npm start
 ```
 
 ---
+
+## Jenkins
+
+```bash
+# build customer docker image for jenkins (docker installed inside)
+docker build -t my-jenkins:lts -f Dockerfile.jenkins .
+
+# remove old plain jenkins (if exists)
+docker stop jenkins
+docker rm jenkins
+
+# run the custom jenkins image
+docker run \
+  --name jenkins \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins-data:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  my-jenkins:lts
+```
