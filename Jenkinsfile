@@ -29,6 +29,11 @@ pipeline {
                 sh '''
                     apt-get update
                     apt-get install -y g++ cmake libpqxx-dev libboost-dev libssl-dev libasio-dev git
+                    
+                    # Fix for 'dubious ownership' error in recent Git versions.
+                    # We add the workspace directory as a safe directory for Git.
+                    git config --global --add safe.directory /var/jenkins_home/workspace/cpp_ts_auth_ci-cd_jenkins
+
                     git submodule update --init --recursive
                     cd be_cpp
                     cmake -B build .
@@ -39,7 +44,7 @@ pipeline {
 
         // ---
 
-        // Stage 2: Build the TypeScript frontend inside a Docker container.
+        // Stage 2: Build the TypeScript Frontend inside a Docker container.
         stage('Build TypeScript Frontend') {
             // This agent uses the official Node.js 18 Docker image.
             agent {
