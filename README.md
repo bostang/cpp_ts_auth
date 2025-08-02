@@ -130,3 +130,7 @@ docker run \
 - Gunakan nama yang deskriptif untuk setiap build (baik fail maupun success).
 
 ![descriptive-build-information](./assets/descriptive-build-information.png)
+
+- masukkan `DOCKER_USERNAME` DAN `DOCKER_PASSWORD` di *credentials*.
+
+![docker-credentials](./assets/docker-credentials.png)
