@@ -1,5 +1,9 @@
 # C++ & TypeScript Authentication App
 
+## Demo
+
+![demo](./assets/demo.gif)
+
 ## Pengujian
 
 ```bash
@@ -35,7 +39,9 @@ psql -U postgres
 ```bash
 # lakukan dari folder /be_cpp/
 git submodule update --init --recursive
-./be_cpp/build/server
+
+./run.sh
+# ./be_cpp/build/server
 ```
 
 **Membuat proyek dari nol**:

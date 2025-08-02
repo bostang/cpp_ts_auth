@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './FormStyles.css'; // <-- Impor file CSS
+import './FormStyles.css';
+import { API_BASE_URL } from '../config';
 
 const RegisterForm: React.FC = () => {
     const [username, setUsername] = useState<string>('');
@@ -13,7 +14,7 @@ const RegisterForm: React.FC = () => {
         setMessage('Sedang mendaftar...');
 
         try {
-            const response = await fetch('http://localhost:18080/register', {
+            const response = await fetch(`${API_BASE_URL}/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

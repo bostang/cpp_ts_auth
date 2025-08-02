@@ -15,7 +15,7 @@
 
 // Global database connection
 std::unique_ptr<pqxx::connection> conn;
-const std::string JWT_SECRET = "your_secret_key";
+std::string JWT_SECRET; // Variabel global untuk kunci rahasia JWT
 
 // ===== Middleware CORS =====
 struct CORS {
@@ -63,7 +63,7 @@ struct JWTAuth {
         try {
             auto decoded = jwt::decode(token);
             auto verifier = jwt::verify()
-                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET})
+                .allow_algorithm(jwt::algorithm::hs256{JWT_SECRET}) // Menggunakan JWT_SECRET global
                 .with_issuer("auth_server");
             verifier.verify(decoded);
 
@@ -82,10 +82,18 @@ struct JWTAuth {
 int main() {
     crow::App<CORS, JWTAuth> app;
 
+    // Baca kunci rahasia JWT dari environment variable atau gunakan nilai default
+    const char* jwt_secret_env = std::getenv("JWT_SECRET_KEY");
+    JWT_SECRET = jwt_secret_env ? std::string(jwt_secret_env) : "your_default_secret_key";
+    std::cout << "Using JWT Secret from environment variable or default value." << std::endl;
+
     // Connect to database
     try {
-        conn = std::make_unique<pqxx::connection>(
-            "dbname=auth_db_cpp user=postgres password=password host=localhost port=5432");
+        const char* db_url_env = std::getenv("DATABASE_URL");
+        std::string db_url = db_url_env ? std::string(db_url_env) : 
+            "dbname=auth_db_cpp user=postgres password=password host=localhost port=5432";
+            
+        conn = std::make_unique<pqxx::connection>(db_url);
 
         if (conn->is_open()) {
             std::cout << "Connected to DB: " << conn->dbname() << std::endl;
@@ -157,7 +165,7 @@ int main() {
                 .set_type("JWS")
                 .set_payload_claim("username", jwt::claim(username))
                 .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{1})
-                .sign(jwt::algorithm::hs256{JWT_SECRET});
+                .sign(jwt::algorithm::hs256{JWT_SECRET}); // Menggunakan JWT_SECRET global
 
             crow::json::wvalue res;
             res["message"] = "Login berhasil!";

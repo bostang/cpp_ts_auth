@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './FormStyles.css'; // <-- Pastikan Anda memiliki file CSS ini
+import { API_BASE_URL } from '../config';
+import './FormStyles.css';
 
 const LoginForm: React.FC = () => {
     const [username, setUsername] = useState<string>('');
@@ -13,7 +14,7 @@ const LoginForm: React.FC = () => {
         setMessage('Sedang login...');
 
         try {
-            const response = await fetch('http://localhost:18080/login', {
+            const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

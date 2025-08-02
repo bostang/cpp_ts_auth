@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './FormStyles.css'; // Asumsikan Anda menggunakan file CSS yang sama
+import { API_BASE_URL } from '../config';
+import './FormStyles.css';
 
 const Dashboard: React.FC = () => {
     const [message, setMessage] = useState<string>('Memuat dashboard...');
@@ -12,13 +13,12 @@ const Dashboard: React.FC = () => {
             const token = localStorage.getItem('jwt_token');
 
             if (!token) {
-                // Jika tidak ada token, arahkan kembali ke login
                 navigate('/login');
                 return;
             }
 
             try {
-                const response = await fetch('http://localhost:18080/dashboard', {
+                const response = await fetch(`${API_BASE_URL}/dashboard`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -31,7 +31,6 @@ const Dashboard: React.FC = () => {
                 } else {
                     const textResponse = await response.text();
                     setMessage(`Gagal memuat dashboard: ${textResponse}`);
-                    // Token mungkin tidak valid, hapus dan arahkan ke login
                     localStorage.removeItem('jwt_token');
                     navigate('/login');
                 }
@@ -48,18 +47,38 @@ const Dashboard: React.FC = () => {
         fetchDashboardData();
     }, [navigate]);
 
-    const handleLogout = () => {
-        // Hapus token dari localStorage
+    const handleLogout = async () => {
+        const token = localStorage.getItem('jwt_token');
+
+        if (token) {
+            try {
+                // Panggil endpoint logout di backend
+                await fetch(`${API_BASE_URL}/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                // Kita tidak perlu menunggu respons, cukup panggil dan lanjutkan
+                console.log("Logout API call sent to backend.");
+            } catch (error) {
+                // Catat kesalahan tetapi tetap lanjutkan logout di sisi klien
+                console.error("Failed to call logout API:", error);
+            }
+        }
+
+        // Hapus token dari localStorage dan navigasi
         localStorage.removeItem('jwt_token');
-        // Arahkan pengguna kembali ke halaman login
         navigate('/login');
     };
 
     if (isLoading) {
-        return <div className="form-container">
-            <h2>Dashboard</h2>
-            <p>Memuat...</p>
-        </div>;
+        return (
+            <div className="form-container">
+                <h2>Dashboard</h2>
+                <p>Memuat...</p>
+            </div>
+        );
     }
 
     return (

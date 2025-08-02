@@ -20,7 +20,8 @@
 -- Check for working C compiler: /usr/bin/cc - skipped
 -- Detecting C compile features
 -- Detecting C compile features - done
--- Configuring done (6.2s)
+-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.13")  
+-- Configuring done (6.6s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/bostang/Documents/it/MyProgrammingJourney/Aplikasi/cpp_ts_auth/be_cpp/build
 ================== log for make ==================
