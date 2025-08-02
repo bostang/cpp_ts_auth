@@ -77,28 +77,68 @@ pipeline {
             agent any
             
             steps {
-                // Langkah 1: Login Docker Hub menggunakan kredensial yang tersimpan.
+                // Langkah 1: Login Docker Hub sekali saja di dalam `withCredentials`
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh "echo \"${env.DOCKER_PASSWORD}\" | docker login -u ${env.DOCKER_USERNAME} --password-stdin"
                 }
                 
-                // Langkah 2: Jalankan parallel builds dan push setelah login berhasil.
-                // Menggunakan `script` block untuk menampung `parallel` karena `parallel` 
-                // tidak diizinkan di dalam `steps`. Namun, `parallel` di dalam `script` 
-                // harus menggunakan sintaksis `parallel([..])` bukan blok `parallel { ... }`.
-                // Pendekatan ini juga bermasalah.
+                // Langkah 2: Gunakan `script` block dengan sintaks `parallel([:])`
+                // untuk menjalankan build dan push image secara paralel.
+                script {
+                    parallel(
+                        'Build and Push Backend Image': {
+                            dir('be_cpp') {
+                                sh '''
+                                    cat << 'EOF' > Dockerfile
+                                    # Use a clean base image
+                                    FROM ubuntu:latest
 
-                // --- SOLUSI PALING BENAR UNTUK KASUS INI ---
-                // Karena `parallel` tidak diizinkan di dalam `steps`, kita harus membuat
-                // stage terpisah untuk setiap build dan menjalankannya secara paralel.
-                // Itu sudah dilakukan di tahap 'Parallel Builds'.
-                // Untuk Continuous Deployment, kita harus memilih salah satu dari dua cara:
-                // 1. Jalankan secara sequential (berturut-turut).
-                // 2. Gunakan `script` block dengan sintaks `parallel([:])`.
+                                    # Install runtime dependencies for the C++ backend
+                                    RUN apt-get update && apt-get install -y libpqxx-dev libboost-dev libssl-dev libasio-dev && rm -rf /var/lib/apt/lists/*
 
-                // Mari kita gunakan solusi 1, yang paling sederhana dan valid secara sintaks.
-                // Jika ingin paralel, kita harus memindahkan seluruh logic ke dalam satu stage paralel.
-                // Pilihan terbaik adalah tidak menggunakan `parallel` di sini dan menjalankannya secara berurutan.
+                                    # Copy the built C++ executable
+                                    COPY build/server /app/server
+
+                                    # Expose the application port
+                                    EXPOSE 8080
+
+                                    # Set the working directory
+                                    WORKDIR /app
+                                    
+                                    # Command to run the application
+                                    CMD ["./server"]
+                                    EOF
+                                '''
+                                // Build, tag, and push the backend image to Docker Hub
+                                sh "docker build -t bostang/auth-app-cpp-ts-be:latest ."
+                                sh "docker tag bostang/auth-app-cpp-ts-be:latest bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
+                                sh "docker push bostang/auth-app-cpp-ts-be:latest"
+                                sh "docker push bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
+                            }
+                        },
+                        'Build and Push Frontend Image': {
+                            dir('fe_ts') {
+                                sh '''
+                                    cat << 'EOF' > Dockerfile
+                                    # Use a lightweight Nginx image to serve static files
+                                    FROM nginx:alpine
+
+                                    # Copy the built frontend assets to the Nginx public directory
+                                    COPY dist /usr/share/nginx/html
+
+                                    # Expose the port
+                                    EXPOSE 80
+                                    EOF
+                                '''
+                                // Build, tag, and push the frontend image to Docker Hub
+                                sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
+                                sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
+                                sh "docker push bostang/auth-app-cpp-ts-fe:latest"
+                                sh "docker push bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
+                            }
+                        }
+                    )
+                }
             }
         }
     }
