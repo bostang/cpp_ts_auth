@@ -77,73 +77,77 @@ pipeline {
             agent any
             
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                // Sekarang Anda dapat menggunakan ${env.DOCKER_USERNAME} dan ${env.DOCKER_PASSWORD}
-                // untuk login tanpa mengekspos kredensial.
-                sh "echo \"${env.DOCKER_PASSWORD}\" | docker login -u ${env.DOCKER_USERNAME} --password-stdin"
-                
-                    parallel {
-                        // Parallel branch for the C++ backend
-                        stage('Build and Push Backend Image') {
-                            steps {
-                                dir('be_cpp') {
-                                    sh '''
-                                        cat << 'EOF' > Dockerfile
-                                        # Use a clean base image
-                                        FROM ubuntu:latest
+                // Langkah 1: Login Docker Hub menggunakan kredensial yang tersimpan.
+                // withCredentials harus dijalankan terlebih dahulu untuk mendapatkan
+                // variabel lingkungan DOCKER_USERNAME dan DOCKER_PASSWORD.
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    sh "echo \"${env.DOCKER_PASSWORD}\" | docker login -u ${env.DOCKER_USERNAME} --password-stdin"
+                }
 
-                                        # Install runtime dependencies for the C++ backend
-                                        RUN apt-get update && apt-get install -y libpqxx-dev libboost-dev libssl-dev libasio-dev && rm -rf /var/lib/apt/lists/*
+                // Langkah 2: Jalankan parallel builds dan push setelah login berhasil.
+                // Blok `parallel` ini berada di dalam blok `steps`, yang merupakan
+                // struktur yang benar dalam pipeline deklaratif.
+                parallel {
+                    // Parallel branch for the C++ backend
+                    stage('Build and Push Backend Image') {
+                        steps {
+                            dir('be_cpp') {
+                                // Hasilkan Dockerfile untuk backend
+                                sh '''
+                                    cat << 'EOF' > Dockerfile
+                                    # Use a clean base image
+                                    FROM ubuntu:latest
 
-                                        # Copy the built C++ executable
-                                        COPY build/server /app/server
+                                    # Install runtime dependencies for the C++ backend
+                                    RUN apt-get update && apt-get install -y libpqxx-dev libboost-dev libssl-dev libasio-dev && rm -rf /var/lib/apt/lists/*
 
-                                        # Expose the application port
-                                        EXPOSE 8080
+                                    # Copy the built C++ executable
+                                    COPY build/server /app/server
 
-                                        # Set the working directory
-                                        WORKDIR /app
-                                        
-                                        # Command to run the application
-                                        CMD ["./server"]
-                                        EOF
-                                    '''
-                                    // Build, tag, and push the backend image to Docker Hub
-                                    sh "docker build -t bostang/auth-app-cpp-ts-be:latest ."
-                                    sh "docker tag bostang/auth-app-cpp-ts-be:latest bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
-                                    sh "docker push bostang/auth-app-cpp-ts-be:latest"
-                                    sh "docker push bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
-                                }
-                            }
-                        }
-                        
-                        // Parallel branch for the TypeScript frontend
-                        stage('Build and Push Frontend Image') {
-                            steps {
-                                dir('fe_ts') {
-                                    sh '''
-                                        cat << 'EOF' > Dockerfile
-                                        # Use a lightweight Nginx image to serve static files
-                                        FROM nginx:alpine
+                                    # Expose the application port
+                                    EXPOSE 8080
 
-                                        # Copy the built frontend assets to the Nginx public directory
-                                        COPY dist /usr/share/nginx/html
-
-                                        # Expose the port
-                                        EXPOSE 80
-                                        EOF
-                                    '''
-                                    // Build, tag, and push the frontend image to Docker Hub
-                                    sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
-                                    sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
-                                    sh "docker push bostang/auth-app-cpp-ts-fe:latest"
-                                    sh "docker push bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
-                                }
+                                    # Set the working directory
+                                    WORKDIR /app
+                                    
+                                    # Command to run the application
+                                    CMD ["./server"]
+                                    EOF
+                                '''
+                                // Build, tag, and push the backend image to Docker Hub
+                                sh "docker build -t bostang/auth-app-cpp-ts-be:latest ."
+                                sh "docker tag bostang/auth-app-cpp-ts-be:latest bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
+                                sh "docker push bostang/auth-app-cpp-ts-be:latest"
+                                sh "docker push bostang/auth-app-cpp-ts-be:${env.BUILD_NUMBER}"
                             }
                         }
                     }
-                }
+                    
+                    // Parallel branch for the TypeScript frontend
+                    stage('Build and Push Frontend Image') {
+                        steps {
+                            dir('fe_ts') {
+                                // Hasilkan Dockerfile untuk frontend
+                                sh '''
+                                    cat << 'EOF' > Dockerfile
+                                    # Use a lightweight Nginx image to serve static files
+                                    FROM nginx:alpine
+
+                                    # Copy the built frontend assets to the Nginx public directory
+                                    COPY dist /usr/share/nginx/html
+
+                                    # Expose the port
+                                    EXPOSE 80
+                                    EOF
+                                '''
+                                // Build, tag, and push the frontend image to Docker Hub
+                                sh "docker build -t bostang/auth-app-cpp-ts-fe:latest ."
+                                sh "docker tag bostang/auth-app-cpp-ts-fe:latest bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
+                                sh "docker push bostang/auth-app-cpp-ts-fe:latest"
+                                sh "docker push bostang/auth-app-cpp-ts-fe:${env.BUILD_NUMBER}"
+                            }
+                        }
+                    }
                 }
             }
         }
